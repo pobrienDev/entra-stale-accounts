@@ -25,6 +25,11 @@ class TestParseGraphDatetime:
         parsed = parse_graph_datetime("2026-05-12T14:32:00.1234567Z")
         assert parsed.year == 2026 and parsed.tzinfo is timezone.utc
 
+    def test_parses_short_fractional_seconds(self):
+        # Pre-3.11 fromisoformat also rejects 1-2 and 4-5 digit fractions.
+        parsed = parse_graph_datetime("2026-05-12T14:32:00.1Z")
+        assert parsed == datetime(2026, 5, 12, 14, 32, 0, 100000, tzinfo=timezone.utc)
+
     def test_parses_explicit_offset(self):
         parsed = parse_graph_datetime("2026-05-12T16:32:00+02:00")
         assert parsed == datetime(2026, 5, 12, 14, 32, tzinfo=timezone.utc)

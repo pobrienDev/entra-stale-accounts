@@ -8,12 +8,16 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Iterable, Optional
 
 #: Column order used for both the table and the CSV output.
 COLUMNS = ("userPrincipalName", "displayName", "accountEnabled", "lastSignIn", "daysInactive")
+
+#: Fractional seconds in a timestamp, e.g. the ".1234567" in Graph's tick precision.
+_FRACTION = re.compile(r"\.(\d+)")
 
 
 @dataclass(frozen=True)
@@ -55,6 +59,14 @@ def parse_graph_datetime(value: Optional[str]) -> Optional[datetime]:
     text = value.strip()
     if text.endswith("Z"):
         text = text[:-1] + "+00:00"
+
+    # Graph emits up to 7 fractional digits (ticks), but fromisoformat before
+    # Python 3.11 only accepts exactly 3 or 6. Pad or truncate to 6 so every
+    # supported Python parses the same timestamps.
+    match = _FRACTION.search(text)
+    if match:
+        digits = match.group(1)[:6].ljust(6, "0")
+        text = text[: match.start(1)] + digits + text[match.end(1) :]
 
     try:
         parsed = datetime.fromisoformat(text)
