@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "entra-stale-accounts"
+version = "0.1.0"
+description = "Read-only CLI that flags inactive Microsoft Entra ID accounts past a configurable threshold."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Patrick O'Brien" }]
+keywords = ["entra", "azure-ad", "microsoft-graph", "cli", "security", "identity", "audit"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Systems Administration",
+]
+dependencies = [
+    "typer>=0.12",
+    "requests>=2.31",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "build>=1.2",
+    "twine>=5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/pobrienDev/entra-stale-accounts"
+Repository = "https://github.com/pobrienDev/entra-stale-accounts"
+Issues = "https://github.com/pobrienDev/entra-stale-accounts/issues"
+
+[project.scripts]
+entra-stale-accounts = "entra_stale_accounts.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
