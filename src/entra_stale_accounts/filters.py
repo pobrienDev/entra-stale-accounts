@@ -132,7 +132,7 @@ def find_stale_accounts(
             continue
         stale.append(account)
 
-    # None sorts first via the -1 sentinel: never-signed-in is maximally stale.
+    # Never-signed-in (None) gets a huge sentinel so it sorts as maximally stale.
     stale.sort(key=lambda a: (-(a.days_inactive if a.days_inactive is not None else 10**9),
                               a.user_principal_name.lower()))
     return stale
