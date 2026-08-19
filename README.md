@@ -1,5 +1,7 @@
 # entra-stale-accounts
 
+[![PyPI](https://img.shields.io/pypi/v/entra-stale-accounts)](https://pypi.org/project/entra-stale-accounts/) [![Python](https://img.shields.io/pypi/pyversions/entra-stale-accounts)](https://pypi.org/project/entra-stale-accounts/) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 A read-only CLI that flags inactive Microsoft Entra ID (Azure AD) accounts past a configurable threshold. Point it at your own tenant, get a table or CSV of accounts that haven't signed in for N days — including accounts that have **never** signed in.
 
 It never modifies anything: the only Microsoft Graph call it makes is a read of the user list.
