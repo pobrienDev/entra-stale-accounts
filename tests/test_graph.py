@@ -34,6 +34,19 @@ class TestLoadCredentials:
         credentials = load_credentials(env_file=str(tmp_path / "absent.env"))
         assert (credentials.tenant_id, credentials.client_id) == ("t", "c")
 
+    def test_finds_dotenv_in_the_working_directory(self, monkeypatch, tmp_path):
+        # Regression: dotenv's default discovery starts at the installed
+        # package's path, so an installed CLI never saw the user's .env.
+        for name in ("ENTRA_TENANT_ID", "ENTRA_CLIENT_ID", "ENTRA_CLIENT_SECRET"):
+            monkeypatch.delenv(name, raising=False)
+        (tmp_path / ".env").write_text(
+            "ENTRA_TENANT_ID=t\nENTRA_CLIENT_ID=c\nENTRA_CLIENT_SECRET=s\n"
+        )
+        monkeypatch.chdir(tmp_path)
+
+        credentials = load_credentials()
+        assert credentials.tenant_id == "t"
+
     def test_missing_values_are_named_in_the_error(self, monkeypatch, tmp_path):
         monkeypatch.setenv("ENTRA_TENANT_ID", "t")
         monkeypatch.delenv("ENTRA_CLIENT_ID", raising=False)

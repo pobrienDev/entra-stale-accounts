@@ -12,7 +12,7 @@ import time
 from typing import Any, Iterator, Optional
 
 import requests
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 
 GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0"
 GRAPH_SCOPE = "https://graph.microsoft.com/.default"
@@ -57,7 +57,10 @@ def load_credentials(env_file: Optional[str] = None) -> Credentials:
     Real environment variables win over .env values, so CI and shell exports
     override the local file rather than the other way round.
     """
-    load_dotenv(dotenv_path=env_file, override=False)
+    # find_dotenv's default searches from this module's install location, not
+    # the caller's working directory — usecwd makes "run it where the .env is"
+    # behave the way the README describes.
+    load_dotenv(dotenv_path=env_file or find_dotenv(usecwd=True) or None, override=False)
 
     values = {
         "ENTRA_TENANT_ID": os.getenv("ENTRA_TENANT_ID", "").strip(),
