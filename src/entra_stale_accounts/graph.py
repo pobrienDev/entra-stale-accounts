@@ -20,8 +20,9 @@ TOKEN_URL_TEMPLATE = "https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/
 #: signInActivity is not returned by default — it has to be asked for explicitly.
 USER_SELECT_FIELDS = "id,displayName,userPrincipalName,accountEnabled,signInActivity"
 
-#: Graph caps $top at 999 for /users; fewer, larger pages means fewer round trips.
-PAGE_SIZE = 999
+#: Graph normally caps $top at 999 for /users, but drops the cap to 120
+#: when signInActivity is in the $select — larger values are rejected with a 400.
+PAGE_SIZE = 120
 
 DEFAULT_TIMEOUT = 30
 
