@@ -93,3 +93,42 @@ class TestIterUsers:
         with patch.object(graph.requests, "get", return_value=json_response(403, payload)):
             with pytest.raises(GraphError, match="Insufficient privileges"):
                 list(iter_users("token"))
+
+
+class TestThrottling:
+    def test_waits_out_a_429_and_honors_retry_after(self):
+        throttled = json_response(429, {"error": {"message": "Too many requests."}})
+        throttled.headers = {"Retry-After": "7"}
+        responses = [throttled, json_response(200, {"value": [{"id": "1"}]})]
+
+        with patch.object(graph.requests, "get", side_effect=responses) as mock_get:
+            with patch.object(graph.time, "sleep") as mock_sleep:
+                users = list(iter_users("token"))
+
+        assert [u["id"] for u in users] == ["1"]
+        assert mock_get.call_count == 2
+        mock_sleep.assert_called_once_with(7)
+
+    def test_falls_back_to_default_wait_without_retry_after(self):
+        throttled = json_response(429, {"error": {"message": "Too many requests."}})
+        throttled.headers = {}
+        responses = [throttled, json_response(200, {"value": []})]
+
+        with patch.object(graph.requests, "get", side_effect=responses):
+            with patch.object(graph.time, "sleep") as mock_sleep:
+                list(iter_users("token"))
+
+        mock_sleep.assert_called_once_with(graph.DEFAULT_RETRY_AFTER)
+
+    def test_gives_up_after_repeated_throttling(self):
+        throttled = json_response(429, {"error": {"message": "Too many requests."}})
+        throttled.headers = {"Retry-After": "1"}
+
+        with patch.object(graph.requests, "get", return_value=throttled) as mock_get:
+            with patch.object(graph.time, "sleep") as mock_sleep:
+                with pytest.raises(GraphError, match="429"):
+                    list(iter_users("token"))
+
+        # The original request plus MAX_THROTTLE_RETRIES retries, then the error.
+        assert mock_get.call_count == graph.MAX_THROTTLE_RETRIES + 1
+        assert mock_sleep.call_count == graph.MAX_THROTTLE_RETRIES

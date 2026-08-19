@@ -8,6 +8,7 @@ anything in the tenant — the only Graph call made is a GET against /users.
 from __future__ import annotations
 
 import os
+import time
 from typing import Any, Iterator, Optional
 
 import requests
@@ -25,6 +26,12 @@ USER_SELECT_FIELDS = "id,displayName,userPrincipalName,accountEnabled,signInActi
 PAGE_SIZE = 120
 
 DEFAULT_TIMEOUT = 30
+
+#: How many times a throttled (429) request is retried before giving up.
+MAX_THROTTLE_RETRIES = 3
+
+#: Wait this many seconds when Graph throttles without a usable Retry-After header.
+DEFAULT_RETRY_AFTER = 5
 
 
 class GraphError(RuntimeError):
@@ -101,7 +108,7 @@ def iter_users(access_token: str, *, timeout: int = DEFAULT_TIMEOUT) -> Iterator
     headers = {"Authorization": f"Bearer {access_token}", "ConsistencyLevel": "eventual"}
 
     while url:
-        response = requests.get(url, headers=headers, timeout=timeout)
+        response = _get_with_throttle_retry(url, headers, timeout=timeout)
         if response.status_code != 200:
             raise GraphError(f"User query failed ({response.status_code}): {_error_detail(response)}")
 
@@ -126,6 +133,31 @@ def fetch_users(
     credentials = credentials or load_credentials(env_file=env_file)
     token = get_access_token(credentials, timeout=timeout)
     return list(iter_users(token, timeout=timeout))
+
+
+def _get_with_throttle_retry(
+    url: str, headers: dict[str, str], *, timeout: int
+) -> "requests.Response":
+    """GET a Graph URL, waiting out throttling (429) responses.
+
+    Graph asks throttled callers to pause via the Retry-After header. The wait
+    is honored up to MAX_THROTTLE_RETRIES times; after that the throttled
+    response is returned as-is so the caller's normal error path reports it.
+    """
+    for attempt in range(MAX_THROTTLE_RETRIES + 1):
+        response = requests.get(url, headers=headers, timeout=timeout)
+        if response.status_code != 429 or attempt == MAX_THROTTLE_RETRIES:
+            return response
+        time.sleep(_retry_after_seconds(response))
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
+def _retry_after_seconds(response: "requests.Response") -> int:
+    """Read Retry-After (Graph sends whole seconds), with a sane fallback."""
+    try:
+        return max(1, int(response.headers.get("Retry-After", "")))
+    except (TypeError, ValueError):
+        return DEFAULT_RETRY_AFTER
 
 
 def _error_detail(response: "requests.Response") -> str:
