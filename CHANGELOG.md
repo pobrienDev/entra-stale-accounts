@@ -4,6 +4,14 @@ All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/) and the format is based on
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.4] - 2026-08-19
+
+### Fixed
+- A `.env` file in the current working directory was not picked up when the
+  CLI was installed via pip/pipx: dotenv's default discovery searches from the
+  package's install location, not from where the command is run. Found by
+  running the published package against a real tenant.
+
 ## [0.1.3] - 2026-08-19
 
 ### Added
@@ -39,6 +47,7 @@ All notable changes to this project are documented here. Versions follow
 - Table and CSV output (`--output`), optional inclusion of disabled accounts
   (`--include-disabled`), credentials via environment or `.env` file.
 
+[0.1.4]: https://github.com/pobrienDev/entra-stale-accounts/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/pobrienDev/entra-stale-accounts/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/pobrienDev/entra-stale-accounts/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/pobrienDev/entra-stale-accounts/compare/v0.1.0...v0.1.1
