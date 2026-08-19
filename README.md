@@ -12,6 +12,14 @@ It never modifies anything: the only Microsoft Graph call it makes is a read of 
 pip install entra-stale-accounts
 ```
 
+On macOS (or any system where Python blocks global pip installs), use [pipx](https://pipx.pypa.io/) instead — it installs the CLI in its own isolated environment and puts the command on your PATH:
+
+```
+brew install pipx
+pipx ensurepath
+pipx install entra-stale-accounts
+```
+
 ## Usage
 
 ```
