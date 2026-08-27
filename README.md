@@ -31,6 +31,10 @@ entra-stale-accounts check --days 90 --output csv > stale.csv
 
 # Also include already-disabled accounts, for a fuller audit
 entra-stale-accounts check --days 90 --include-disabled
+
+# Add a column of each account's license SKUs — which stale accounts
+# are still holding paid licenses you could reclaim?
+entra-stale-accounts check --days 90 --licenses
 ```
 
 ```
@@ -63,6 +67,10 @@ Grant these **application** permissions under Microsoft Graph, then click **Gran
 |---|---|
 | `User.Read.All` | Read the user list |
 | `AuditLog.Read.All` | Read the `signInActivity` field |
+| `Organization.Read.All` | *Optional* — lets `--licenses` show your tenant's own SKU names |
+
+Without `Organization.Read.All`, `--licenses` still works: common SKUs resolve
+through a built-in table and anything unknown shows as its raw GUID.
 
 Create a client secret under Certificates & secrets.
 

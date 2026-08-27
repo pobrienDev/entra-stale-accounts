@@ -17,6 +17,7 @@ def graph_user(
     last_sign_in="2026-08-01T09:00:00Z",
     last_non_interactive="2026-08-01T09:00:00Z",
     include_activity=True,
+    licenses=None,
 ):
     """Build one user object in the shape Graph's /users endpoint returns."""
     user = {
@@ -25,6 +26,8 @@ def graph_user(
         "userPrincipalName": upn,
         "accountEnabled": enabled,
     }
+    if licenses is not None:
+        user["assignedLicenses"] = [{"skuId": sku_id} for sku_id in licenses]
     if include_activity:
         user["signInActivity"] = {
             "lastSignInDateTime": last_sign_in,

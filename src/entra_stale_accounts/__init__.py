@@ -1,5 +1,5 @@
 """entra-stale-accounts: a read-only CLI for flagging inactive Entra ID accounts."""
 
-__version__ = "0.1.4"
+__version__ = "0.2.0"
 
 __all__ = ["__version__"]

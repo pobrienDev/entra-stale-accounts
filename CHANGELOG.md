@@ -4,6 +4,16 @@ All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/) and the format is based on
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.0] - 2026-08-27
+
+### Added
+- `--licenses` flag: adds a column of each account's assigned license SKUs to
+  the table and CSV output, answering "which stale accounts still hold paid
+  licenses?". Names resolve from the tenant's own SKU list when the app has
+  the optional `Organization.Read.All` permission, falling back to a built-in
+  table of common SKUs, then to the raw GUID. Output without the flag is
+  unchanged.
+
 ## [0.1.4] - 2026-08-19
 
 ### Fixed
@@ -47,6 +57,7 @@ All notable changes to this project are documented here. Versions follow
 - Table and CSV output (`--output`), optional inclusion of disabled accounts
   (`--include-disabled`), credentials via environment or `.env` file.
 
+[0.2.0]: https://github.com/pobrienDev/entra-stale-accounts/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/pobrienDev/entra-stale-accounts/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/pobrienDev/entra-stale-accounts/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/pobrienDev/entra-stale-accounts/compare/v0.1.1...v0.1.2

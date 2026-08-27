@@ -16,6 +16,29 @@ from entra_stale_accounts.filters import (
 from .conftest import graph_user
 
 
+class TestLicenseNames:
+    SPB = "cbdc14ab-d96c-4c30-b9f4-6ada7cdc1d46"
+
+    def test_tenant_map_wins_then_builtins_then_guid(self):
+        from entra_stale_accounts.filters import assigned_license_names
+
+        user = graph_user(licenses=None)
+        user["assignedLicenses"] = [
+            {"skuId": self.SPB},
+            {"skuId": "aaaaaaaa-0000-0000-0000-000000000000"},
+        ]
+        names = assigned_license_names(user, {"aaaaaaaa-0000-0000-0000-000000000000": "MAPPED"})
+        assert names == ("MAPPED", "SPB")
+
+        names = assigned_license_names(user)
+        assert names == ("SPB", "aaaaaaaa-0000-0000-0000-000000000000")
+
+    def test_missing_assigned_licenses_is_empty(self):
+        from entra_stale_accounts.filters import assigned_license_names
+
+        assert assigned_license_names(graph_user()) == ()
+
+
 class TestParseGraphDatetime:
     def test_parses_zulu_timestamp_as_utc(self):
         parsed = parse_graph_datetime("2026-05-12T14:32:00Z")

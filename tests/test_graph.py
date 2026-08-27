@@ -108,6 +108,43 @@ class TestIterUsers:
                 list(iter_users("token"))
 
 
+class TestFetchSkuNames:
+    def test_maps_sku_ids_to_part_numbers(self):
+        payload = {
+            "value": [
+                {"skuId": "CBDC14AB-D96C-4C30-B9F4-6ADA7CDC1D46", "skuPartNumber": "SPB"},
+                {"skuId": "11111111-2222-3333-4444-555555555555", "skuPartNumber": "CUSTOM"},
+            ]
+        }
+        with patch.object(graph.requests, "get", return_value=json_response(200, payload)):
+            names = graph.fetch_sku_names("token")
+
+        # Keys are lowercased so lookups don't depend on Graph's GUID casing.
+        assert names == {
+            "cbdc14ab-d96c-4c30-b9f4-6ada7cdc1d46": "SPB",
+            "11111111-2222-3333-4444-555555555555": "CUSTOM",
+        }
+
+    def test_permission_denied_degrades_to_none(self):
+        payload = {"error": {"message": "Insufficient privileges."}}
+        with patch.object(graph.requests, "get", return_value=json_response(403, payload)):
+            assert graph.fetch_sku_names("token") is None
+
+
+class TestLicenseSelect:
+    def test_licenses_are_not_requested_by_default(self):
+        with patch.object(graph.requests, "get", return_value=json_response(200, {"value": []})) as mock_get:
+            list(iter_users("token"))
+
+        assert "assignedLicenses" not in mock_get.call_args[0][0]
+
+    def test_include_licenses_adds_the_field(self):
+        with patch.object(graph.requests, "get", return_value=json_response(200, {"value": []})) as mock_get:
+            list(iter_users("token", include_licenses=True))
+
+        assert "assignedLicenses" in mock_get.call_args[0][0]
+
+
 class TestThrottling:
     def test_waits_out_a_429_and_honors_retry_after(self):
         throttled = json_response(429, {"error": {"message": "Too many requests."}})

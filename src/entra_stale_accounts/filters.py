@@ -11,10 +11,15 @@ import io
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, Mapping, Optional, Sequence
+
+from .skus import resolve_sku_name
 
 #: Column order used for both the table and the CSV output.
 COLUMNS = ("userPrincipalName", "displayName", "accountEnabled", "lastSignIn", "daysInactive")
+
+#: The optional wider layout produced by --licenses.
+COLUMNS_WITH_LICENSES = COLUMNS + ("licenses",)
 
 #: Fractional seconds in a timestamp, e.g. the ".1234567" in Graph's tick precision.
 _FRACTION = re.compile(r"\.(\d+)")
@@ -30,6 +35,7 @@ class StaleAccount:
     account_enabled: bool
     last_sign_in: Optional[datetime]
     days_inactive: Optional[int]
+    licenses: tuple[str, ...] = ()
 
     @property
     def never_signed_in(self) -> bool:
@@ -43,6 +49,7 @@ class StaleAccount:
             "accountEnabled": "true" if self.account_enabled else "false",
             "lastSignIn": "never" if self.never_signed_in else self.last_sign_in.strftime("%Y-%m-%d"),
             "daysInactive": "never" if self.days_inactive is None else str(self.days_inactive),
+            "licenses": "; ".join(self.licenses),
         }
 
 
@@ -102,7 +109,24 @@ def days_since_last_sign_in(user: dict[str, Any], now: Optional[datetime] = None
     return max(0, (reference - signed_in).days)
 
 
-def to_stale_account(user: dict[str, Any], now: Optional[datetime] = None) -> StaleAccount:
+def assigned_license_names(
+    user: dict[str, Any], sku_names: Optional[Mapping[str, str]] = None
+) -> tuple[str, ...]:
+    """Readable, sorted names for a user's assignedLicenses SKU GUIDs."""
+    licenses = user.get("assignedLicenses") or []
+    names = {
+        resolve_sku_name(entry["skuId"], sku_names)
+        for entry in licenses
+        if isinstance(entry, dict) and entry.get("skuId")
+    }
+    return tuple(sorted(names))
+
+
+def to_stale_account(
+    user: dict[str, Any],
+    now: Optional[datetime] = None,
+    sku_names: Optional[Mapping[str, str]] = None,
+) -> StaleAccount:
     """Build a StaleAccount record from a raw Graph user object."""
     return StaleAccount(
         id=user.get("id", ""),
@@ -111,6 +135,7 @@ def to_stale_account(user: dict[str, Any], now: Optional[datetime] = None) -> St
         account_enabled=bool(user.get("accountEnabled")),
         last_sign_in=last_sign_in(user),
         days_inactive=days_since_last_sign_in(user, now=now),
+        licenses=assigned_license_names(user, sku_names),
     )
 
 
@@ -120,6 +145,7 @@ def find_stale_accounts(
     *,
     include_disabled: bool = False,
     now: Optional[datetime] = None,
+    sku_names: Optional[Mapping[str, str]] = None,
 ) -> list[StaleAccount]:
     """Return accounts with no interactive sign-in in the last ``days`` days.
 
@@ -137,7 +163,7 @@ def find_stale_accounts(
     stale: list[StaleAccount] = []
 
     for user in users:
-        account = to_stale_account(user, now=reference)
+        account = to_stale_account(user, now=reference, sku_names=sku_names)
         if not account.account_enabled and not include_disabled:
             continue
         if account.days_inactive is not None and account.days_inactive < days:
@@ -150,17 +176,19 @@ def find_stale_accounts(
     return stale
 
 
-def to_csv(accounts: Iterable[StaleAccount]) -> str:
+def to_csv(accounts: Iterable[StaleAccount], columns: Sequence[str] = COLUMNS) -> str:
     """Render accounts as CSV text, header included even when there are no rows."""
     buffer = io.StringIO()
-    writer = csv.DictWriter(buffer, fieldnames=list(COLUMNS), lineterminator="\n")
+    writer = csv.DictWriter(
+        buffer, fieldnames=list(columns), lineterminator="\n", extrasaction="ignore"
+    )
     writer.writeheader()
     for account in accounts:
         writer.writerow(account.as_row())
     return buffer.getvalue()
 
 
-def to_table(accounts: Iterable[StaleAccount]) -> str:
+def to_table(accounts: Iterable[StaleAccount], columns: Sequence[str] = COLUMNS) -> str:
     """Render accounts as a plain-text aligned table."""
     rows = [account.as_row() for account in accounts]
     if not rows:
@@ -172,15 +200,16 @@ def to_table(accounts: Iterable[StaleAccount]) -> str:
         "accountEnabled": "ENABLED",
         "lastSignIn": "LAST SIGN-IN",
         "daysInactive": "DAYS",
+        "licenses": "LICENSES",
     }
     widths = {
         column: max(len(headers[column]), *(len(row[column]) for row in rows))
-        for column in COLUMNS
+        for column in columns
     }
 
     def render(values: dict[str, str]) -> str:
-        return "  ".join(values[column].ljust(widths[column]) for column in COLUMNS).rstrip()
+        return "  ".join(values[column].ljust(widths[column]) for column in columns).rstrip()
 
-    lines = [render(headers), render({c: "-" * widths[c] for c in COLUMNS})]
+    lines = [render(headers), render({c: "-" * widths[c] for c in columns})]
     lines.extend(render(row) for row in rows)
     return "\n".join(lines)

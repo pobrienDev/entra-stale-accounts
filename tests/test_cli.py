@@ -64,7 +64,7 @@ def all_output(result) -> str:
 
 class TestCheckCommand:
     def test_table_output_lists_stale_accounts_only(self, fake_users):
-        with patch("entra_stale_accounts.cli.fetch_users", return_value=fake_users):
+        with patch("entra_stale_accounts.cli.fetch_tenant_data", return_value=(fake_users, None)):
             result = runner.invoke(app, ["check", "--days", "90"])
 
         assert result.exit_code == 0
@@ -75,7 +75,7 @@ class TestCheckCommand:
         assert "2 stale account(s)" in result.output
 
     def test_include_disabled_adds_disabled_accounts(self, fake_users):
-        with patch("entra_stale_accounts.cli.fetch_users", return_value=fake_users):
+        with patch("entra_stale_accounts.cli.fetch_tenant_data", return_value=(fake_users, None)):
             result = runner.invoke(app, ["check", "--days", "90", "--include-disabled"])
 
         assert result.exit_code == 0
@@ -83,28 +83,28 @@ class TestCheckCommand:
         assert "3 stale account(s)" in result.output
 
     def test_zero_results_exits_cleanly_with_a_message(self, fake_users):
-        with patch("entra_stale_accounts.cli.fetch_users", return_value=[fake_users[1]]):
+        with patch("entra_stale_accounts.cli.fetch_tenant_data", return_value=([fake_users[1]], None)):
             result = runner.invoke(app, ["check", "--days", "90"])
 
         assert result.exit_code == 0
         assert "No stale enabled accounts found" in result.output
 
     def test_empty_tenant_exits_cleanly(self):
-        with patch("entra_stale_accounts.cli.fetch_users", return_value=[]):
+        with patch("entra_stale_accounts.cli.fetch_tenant_data", return_value=([], None)):
             result = runner.invoke(app, ["check"])
 
         assert result.exit_code == 0
         assert "No stale" in result.output
 
     def test_default_threshold_is_90_days(self, fake_users):
-        with patch("entra_stale_accounts.cli.fetch_users", return_value=fake_users):
+        with patch("entra_stale_accounts.cli.fetch_tenant_data", return_value=(fake_users, None)):
             default_run = runner.invoke(app, ["check"])
             explicit_run = runner.invoke(app, ["check", "--days", "90"])
 
         assert default_run.output == explicit_run.output
 
     def test_higher_threshold_narrows_results(self, fake_users):
-        with patch("entra_stale_accounts.cli.fetch_users", return_value=fake_users):
+        with patch("entra_stale_accounts.cli.fetch_tenant_data", return_value=(fake_users, None)):
             result = runner.invoke(app, ["check", "--days", "300"])
 
         assert result.exit_code == 0
@@ -114,7 +114,7 @@ class TestCheckCommand:
 
 class TestCsvOutput:
     def test_csv_output_is_parseable(self, fake_users):
-        with patch("entra_stale_accounts.cli.fetch_users", return_value=fake_users):
+        with patch("entra_stale_accounts.cli.fetch_tenant_data", return_value=(fake_users, None)):
             result = runner.invoke(app, ["check", "--days", "90", "--output", "csv"])
 
         lines = result.output.strip().splitlines()
@@ -124,7 +124,7 @@ class TestCsvOutput:
         assert "Stale Sam" in result.output
 
     def test_csv_output_writes_a_header_for_zero_results(self, fake_users):
-        with patch("entra_stale_accounts.cli.fetch_users", return_value=[fake_users[1]]):
+        with patch("entra_stale_accounts.cli.fetch_tenant_data", return_value=([fake_users[1]], None)):
             result = runner.invoke(app, ["check", "--output", "csv"])
 
         assert result.exit_code == 0
@@ -133,7 +133,7 @@ class TestCsvOutput:
         )
 
     def test_csv_output_can_be_redirected_to_a_file(self, tmp_path, fake_users):
-        with patch("entra_stale_accounts.cli.fetch_users", return_value=fake_users):
+        with patch("entra_stale_accounts.cli.fetch_tenant_data", return_value=(fake_users, None)):
             result = runner.invoke(app, ["check", "--output", "csv"])
 
         target = tmp_path / "stale.csv"
@@ -141,16 +141,77 @@ class TestCsvOutput:
         assert target.read_text().splitlines()[0].startswith("userPrincipalName")
 
     def test_invalid_output_format_is_rejected(self, fake_users):
-        with patch("entra_stale_accounts.cli.fetch_users", return_value=fake_users):
+        with patch("entra_stale_accounts.cli.fetch_tenant_data", return_value=(fake_users, None)):
             result = runner.invoke(app, ["check", "--output", "yaml"])
 
         assert result.exit_code != 0
 
 
+class TestLicensesFlag:
+    SPB = "cbdc14ab-d96c-4c30-b9f4-6ada7cdc1d46"  # built-in table: SPB
+    CUSTOM = "11111111-2222-3333-4444-555555555555"
+
+    @pytest.fixture
+    def licensed_users(self):
+        return [
+            graph_user(
+                user_id="1",
+                display_name="Stale Sam",
+                upn="sam@contoso.onmicrosoft.com",
+                last_sign_in=iso_days_ago(200),
+                licenses=[self.SPB, self.CUSTOM],
+            ),
+        ]
+
+    def test_licenses_column_uses_tenant_sku_names_when_available(self, licensed_users):
+        sku_names = {self.CUSTOM: "CONTOSO_CUSTOM"}
+        with patch(
+            "entra_stale_accounts.cli.fetch_tenant_data",
+            return_value=(licensed_users, sku_names),
+        ):
+            result = runner.invoke(app, ["check", "--days", "90", "--licenses"])
+
+        assert result.exit_code == 0
+        assert "LICENSES" in result.output
+        assert "CONTOSO_CUSTOM; SPB" in result.output
+
+    def test_licenses_column_falls_back_to_the_guid(self, licensed_users):
+        # No tenant map (e.g. Organization.Read.All not granted): built-in
+        # names still resolve, unknown SKUs show as their GUID.
+        with patch(
+            "entra_stale_accounts.cli.fetch_tenant_data",
+            return_value=(licensed_users, None),
+        ):
+            result = runner.invoke(app, ["check", "--days", "90", "--licenses"])
+
+        assert "SPB" in result.output
+        assert self.CUSTOM in result.output
+
+    def test_licenses_csv_gains_the_column(self, licensed_users):
+        with patch(
+            "entra_stale_accounts.cli.fetch_tenant_data",
+            return_value=(licensed_users, None),
+        ):
+            result = runner.invoke(app, ["check", "--output", "csv", "--licenses"])
+
+        header = result.output.splitlines()[0]
+        assert header.endswith("daysInactive,licenses")
+
+    def test_without_the_flag_output_is_unchanged(self, licensed_users):
+        with patch(
+            "entra_stale_accounts.cli.fetch_tenant_data",
+            return_value=(licensed_users, None),
+        ):
+            result = runner.invoke(app, ["check", "--days", "90"])
+
+        assert "LICENSES" not in result.output
+        assert "SPB" not in result.output
+
+
 class TestErrorHandling:
     def test_missing_credentials_exit_code_is_1(self):
         error = MissingCredentialsError("Missing credentials: ENTRA_TENANT_ID")
-        with patch("entra_stale_accounts.cli.fetch_users", side_effect=error):
+        with patch("entra_stale_accounts.cli.fetch_tenant_data", side_effect=error):
             result = runner.invoke(app, ["check"])
 
         assert result.exit_code == 1
@@ -158,7 +219,7 @@ class TestErrorHandling:
 
     def test_graph_failure_exit_code_is_1(self):
         error = GraphError("User query failed (403): Insufficient privileges.")
-        with patch("entra_stale_accounts.cli.fetch_users", side_effect=error):
+        with patch("entra_stale_accounts.cli.fetch_tenant_data", side_effect=error):
             result = runner.invoke(app, ["check"])
 
         assert result.exit_code == 1

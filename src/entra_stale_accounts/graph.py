@@ -21,6 +21,9 @@ TOKEN_URL_TEMPLATE = "https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/
 #: signInActivity is not returned by default — it has to be asked for explicitly.
 USER_SELECT_FIELDS = "id,displayName,userPrincipalName,accountEnabled,signInActivity"
 
+#: Requested additionally when license reporting is on.
+LICENSE_SELECT_FIELD = "assignedLicenses"
+
 #: Graph normally caps $top at 999 for /users, but drops the cap to 120
 #: when signInActivity is in the $select — larger values are rejected with a 400.
 PAGE_SIZE = 120
@@ -105,9 +108,14 @@ def get_access_token(credentials: Credentials, *, timeout: int = DEFAULT_TIMEOUT
     return token
 
 
-def iter_users(access_token: str, *, timeout: int = DEFAULT_TIMEOUT) -> Iterator[dict[str, Any]]:
+def iter_users(
+    access_token: str, *, timeout: int = DEFAULT_TIMEOUT, include_licenses: bool = False
+) -> Iterator[dict[str, Any]]:
     """Yield every user in the tenant, following Graph's @odata.nextLink paging."""
-    url: Optional[str] = f"{GRAPH_BASE_URL}/users?$select={USER_SELECT_FIELDS}&$top={PAGE_SIZE}"
+    fields = USER_SELECT_FIELDS
+    if include_licenses:
+        fields += f",{LICENSE_SELECT_FIELD}"
+    url: Optional[str] = f"{GRAPH_BASE_URL}/users?$select={fields}&$top={PAGE_SIZE}"
     headers = {"Authorization": f"Bearer {access_token}", "ConsistencyLevel": "eventual"}
 
     while url:
@@ -122,20 +130,57 @@ def iter_users(access_token: str, *, timeout: int = DEFAULT_TIMEOUT) -> Iterator
         url = payload.get("@odata.nextLink")
 
 
+def fetch_sku_names(access_token: str, *, timeout: int = DEFAULT_TIMEOUT) -> Optional[dict[str, str]]:
+    """Map the tenant's SKU GUIDs to part numbers via /subscribedSkus.
+
+    Reading that endpoint needs Organization.Read.All, which the base setup
+    does not require — so any failure here degrades to None and the caller
+    falls back to the built-in SKU table rather than aborting the report.
+    """
+    response = _get_with_throttle_retry(
+        f"{GRAPH_BASE_URL}/subscribedSkus",
+        {"Authorization": f"Bearer {access_token}"},
+        timeout=timeout,
+    )
+    if response.status_code != 200:
+        return None
+
+    return {
+        sku["skuId"].lower(): sku["skuPartNumber"]
+        for sku in response.json().get("value", [])
+        if sku.get("skuId") and sku.get("skuPartNumber")
+    }
+
+
+def fetch_tenant_data(
+    credentials: Optional[Credentials] = None,
+    *,
+    env_file: Optional[str] = None,
+    timeout: int = DEFAULT_TIMEOUT,
+    include_licenses: bool = False,
+) -> "tuple[list[dict[str, Any]], Optional[dict[str, str]]]":
+    """Authenticate and return (users, sku_names) in one Graph session.
+
+    sku_names is None unless license reporting is on and the tenant's SKU list
+    was readable. This is the single seam the CLI tests patch — mock this and
+    no network call is ever made.
+    """
+    credentials = credentials or load_credentials(env_file=env_file)
+    token = get_access_token(credentials, timeout=timeout)
+    users = list(iter_users(token, timeout=timeout, include_licenses=include_licenses))
+    sku_names = fetch_sku_names(token, timeout=timeout) if include_licenses else None
+    return users, sku_names
+
+
 def fetch_users(
     credentials: Optional[Credentials] = None,
     *,
     env_file: Optional[str] = None,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> list[dict[str, Any]]:
-    """Authenticate and return every user object, with sign-in activity included.
-
-    This is the single seam the CLI tests patch — mock this and no network call
-    is ever made.
-    """
-    credentials = credentials or load_credentials(env_file=env_file)
-    token = get_access_token(credentials, timeout=timeout)
-    return list(iter_users(token, timeout=timeout))
+    """Authenticate and return every user object, with sign-in activity included."""
+    users, _ = fetch_tenant_data(credentials, env_file=env_file, timeout=timeout)
+    return users
 
 
 def _get_with_throttle_retry(

@@ -8,8 +8,8 @@ from typing import Optional
 import typer
 
 from . import __version__
-from .filters import find_stale_accounts, to_csv, to_table
-from .graph import GraphError, fetch_users
+from .filters import COLUMNS, COLUMNS_WITH_LICENSES, find_stale_accounts, to_csv, to_table
+from .graph import GraphError, fetch_tenant_data
 
 
 class OutputFormat(str, Enum):
@@ -57,6 +57,11 @@ def check(
     include_disabled: bool = typer.Option(
         False, "--include-disabled", help="Also show already-disabled accounts"
     ),
+    licenses: bool = typer.Option(
+        False,
+        "--licenses",
+        help="Add a column of assigned license SKUs (readable names need Organization.Read.All)",
+    ),
     env_file: Optional[str] = typer.Option(
         None, "--env-file", help="Path to a .env file with tenant credentials"
     ),
@@ -68,16 +73,19 @@ def check(
     modified; the only Graph call made is a read of the user list.
     """
     try:
-        users = fetch_users(env_file=env_file)
+        users, sku_names = fetch_tenant_data(env_file=env_file, include_licenses=licenses)
     except GraphError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=1)
 
-    accounts = find_stale_accounts(users, days=days, include_disabled=include_disabled)
+    accounts = find_stale_accounts(
+        users, days=days, include_disabled=include_disabled, sku_names=sku_names
+    )
+    columns = COLUMNS_WITH_LICENSES if licenses else COLUMNS
 
     if output is OutputFormat.csv:
         # Header is emitted even for an empty result, so the output stays valid CSV.
-        typer.echo(to_csv(accounts), nl=False)
+        typer.echo(to_csv(accounts, columns=columns), nl=False)
         return
 
     if not accounts:
@@ -85,7 +93,7 @@ def check(
         typer.echo(f"No stale {scope} found (threshold: {days} days).")
         return
 
-    typer.echo(to_table(accounts))
+    typer.echo(to_table(accounts, columns=columns))
     typer.echo("")
     typer.echo(f"{len(accounts)} stale account(s) past a {days}-day threshold.")
 
