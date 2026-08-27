@@ -95,6 +95,32 @@ sam@contoso.onmicrosoft.com    Stale Sam     true     2026-01-01    229
 2 stale account(s) past a 90-day threshold.
 ```
 
+## Troubleshooting
+
+**"blocked by your organization's Device Guard policy" on Windows.** Smart App
+Control (and enterprise App Control/WDAC policies) block the unsigned
+`entra-stale-accounts.exe` launcher that pip generates. The tool itself still
+runs fine through the signed Python interpreter — substitute the command name
+and keep every flag the same:
+
+```
+python -m entra_stale_accounts.cli check --days 90
+```
+
+**CSV opens in Excel as one mangled column.** In Windows PowerShell, `>` writes
+UTF-16, which Excel mis-detects. Redirect through `Out-File` instead:
+
+```
+entra-stale-accounts check --days 90 --output csv | Out-File stale.csv -Encoding utf8
+```
+
+**A `.env` in the current directory is ignored.** Fixed in 0.1.4 — upgrade with
+`pip install --upgrade entra-stale-accounts`, or pass `--env-file .env`
+explicitly on older versions.
+
+**Every account shows `never`.** Almost always the licensing wall described in
+[Setup](#3-the-licensing-requirement-read-this), not a bug.
+
 ## Development
 
 ```
