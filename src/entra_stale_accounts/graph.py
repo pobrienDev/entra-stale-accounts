@@ -124,9 +124,7 @@ def iter_users(
             raise GraphError(f"User query failed ({response.status_code}): {_error_detail(response)}")
 
         payload = response.json()
-        for user in payload.get("value", []):
-            yield user
-
+        yield from payload.get("value", [])
         url = payload.get("@odata.nextLink")
 
 
@@ -158,7 +156,7 @@ def fetch_tenant_data(
     env_file: Optional[str] = None,
     timeout: int = DEFAULT_TIMEOUT,
     include_licenses: bool = False,
-) -> "tuple[list[dict[str, Any]], Optional[dict[str, str]]]":
+) -> tuple[list[dict[str, Any]], Optional[dict[str, str]]]:
     """Authenticate and return (users, sku_names) in one Graph session.
 
     sku_names is None unless license reporting is on and the tenant's SKU list
@@ -172,20 +170,9 @@ def fetch_tenant_data(
     return users, sku_names
 
 
-def fetch_users(
-    credentials: Optional[Credentials] = None,
-    *,
-    env_file: Optional[str] = None,
-    timeout: int = DEFAULT_TIMEOUT,
-) -> list[dict[str, Any]]:
-    """Authenticate and return every user object, with sign-in activity included."""
-    users, _ = fetch_tenant_data(credentials, env_file=env_file, timeout=timeout)
-    return users
-
-
 def _get_with_throttle_retry(
     url: str, headers: dict[str, str], *, timeout: int
-) -> "requests.Response":
+) -> requests.Response:
     """GET a Graph URL, waiting out throttling (429) responses.
 
     Graph asks throttled callers to pause via the Retry-After header. The wait
@@ -200,7 +187,7 @@ def _get_with_throttle_retry(
     raise AssertionError("unreachable")  # pragma: no cover
 
 
-def _retry_after_seconds(response: "requests.Response") -> int:
+def _retry_after_seconds(response: requests.Response) -> int:
     """Read Retry-After (Graph sends whole seconds), with a sane fallback."""
     try:
         return max(1, int(response.headers.get("Retry-After", "")))
@@ -208,7 +195,7 @@ def _retry_after_seconds(response: "requests.Response") -> int:
         return DEFAULT_RETRY_AFTER
 
 
-def _error_detail(response: "requests.Response") -> str:
+def _error_detail(response: requests.Response) -> str:
     """Pull Graph's error message out of the body, falling back to raw text."""
     try:
         payload = response.json()

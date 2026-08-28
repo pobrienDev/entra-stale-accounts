@@ -8,7 +8,13 @@ from typing import Optional
 import typer
 
 from . import __version__
-from .filters import COLUMNS, COLUMNS_WITH_LICENSES, find_stale_accounts, to_csv, to_table
+from .filters import (
+    COLUMNS,
+    COLUMNS_WITH_LICENSES,
+    find_stale_accounts,
+    to_csv,
+    to_table,
+)
 from .graph import GraphError, fetch_tenant_data
 
 

@@ -4,6 +4,19 @@ All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/) and the format is based on
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.1] - 2026-08-27
+
+### Fixed
+- CSV formula injection: display names (or any exported value) starting with
+  `=`, `+`, `-`, `@`, tab, or carriage return are prefixed with an apostrophe
+  in CSV output, so Excel reads them as text instead of executing them as
+  formulas. Table output is unchanged. Names are end-user-controlled, so a
+  report opened in Excel should never trust them as live content.
+
+### Removed
+- The unused internal `fetch_users` wrapper; `fetch_tenant_data` is the
+  supported entry point.
+
 ## [0.2.0] - 2026-08-27
 
 ### Added
@@ -57,6 +70,7 @@ All notable changes to this project are documented here. Versions follow
 - Table and CSV output (`--output`), optional inclusion of disabled accounts
   (`--include-disabled`), credentials via environment or `.env` file.
 
+[0.2.1]: https://github.com/pobrienDev/entra-stale-accounts/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/pobrienDev/entra-stale-accounts/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/pobrienDev/entra-stale-accounts/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/pobrienDev/entra-stale-accounts/compare/v0.1.2...v0.1.3

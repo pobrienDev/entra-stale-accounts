@@ -176,6 +176,22 @@ def find_stale_accounts(
     return stale
 
 
+#: Leading characters Excel treats as the start of a formula.
+_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _excel_safe(value: str) -> str:
+    """Neutralize CSV formula injection.
+
+    Display names are end-user-controlled, and a value like "=HYPERLINK(...)"
+    executes when the CSV is opened in Excel. A leading apostrophe makes Excel
+    read the cell as text; it is not shown in the cell itself.
+    """
+    if value.startswith(_FORMULA_PREFIXES):
+        return "'" + value
+    return value
+
+
 def to_csv(accounts: Iterable[StaleAccount], columns: Sequence[str] = COLUMNS) -> str:
     """Render accounts as CSV text, header included even when there are no rows."""
     buffer = io.StringIO()
@@ -184,7 +200,7 @@ def to_csv(accounts: Iterable[StaleAccount], columns: Sequence[str] = COLUMNS) -
     )
     writer.writeheader()
     for account in accounts:
-        writer.writerow(account.as_row())
+        writer.writerow({key: _excel_safe(value) for key, value in account.as_row().items()})
     return buffer.getvalue()
 
 
