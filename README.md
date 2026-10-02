@@ -35,6 +35,9 @@ entra-stale-accounts check --days 90 --include-disabled
 # Add a column of each account's license SKUs — which stale accounts
 # are still holding paid licenses you could reclaim?
 entra-stale-accounts check --days 90 --licenses
+
+# CSV with the license column — a reclaim list you can sort in Excel
+entra-stale-accounts check --days 90 --licenses --output csv > stale-licenses.csv
 ```
 
 ```
@@ -47,9 +50,13 @@ Options:
   --days INTEGER          Inactivity threshold in days  [default: 90]
   --output [table|csv]    Output format  [default: table]
   --include-disabled      Also show already-disabled accounts
+  --licenses              Add a column of assigned license SKUs (readable
+                          names need Organization.Read.All)
   --env-file TEXT         Path to a .env file with tenant credentials
   --help                  Show this message and exit.
 ```
+
+`--licenses` adds a `LICENSES` column to the table and a trailing `licenses` column to the CSV. An account with several SKUs lists them in one cell, separated by `; `.
 
 Accounts that have never signed in are always flagged — no activity at all is at least as noteworthy as an old sign-in — and sort to the top of the results.
 
