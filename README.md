@@ -146,7 +146,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-The test suite mocks every Graph call — it runs in milliseconds and never needs real credentials or a live tenant.
+The test suite mocks every Graph call, it runs in milliseconds and never needs real credentials or a live tenant.
 
 ## Origin
 
