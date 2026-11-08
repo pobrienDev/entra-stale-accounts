@@ -4,7 +4,7 @@
 
 A read-only CLI that flags inactive Microsoft Entra ID (Azure AD) accounts past a configurable threshold. Point it at your own tenant, get a table or CSV of accounts that haven't signed in for N days — including accounts that have **never** signed in.
 
-It never modifies anything: the only Microsoft Graph call it makes is a read of the user list. When Graph throttles (429), it waits out the `Retry-After` interval and retries instead of failing.
+It never modifies anything: its only Microsoft Graph calls are a read of the user list and, with `--licenses`, a read of the tenant's subscribed SKUs. When Graph throttles (429), it waits out the `Retry-After` interval and retries instead of failing.
 
 ## Install
 

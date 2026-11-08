@@ -1,8 +1,9 @@
-"""Microsoft Graph authentication and the user-list call.
+"""Microsoft Graph authentication and the read-only Graph calls.
 
 Credentials are read from the environment (or a local .env file) so the tool can
 be pointed at any tenant without touching the source. Nothing here modifies
-anything in the tenant — the only Graph call made is a GET against /users.
+anything in the tenant — the only Graph calls made are GETs against /users and,
+when --licenses is used, /subscribedSkus.
 """
 
 from __future__ import annotations
