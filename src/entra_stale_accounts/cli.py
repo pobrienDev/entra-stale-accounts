@@ -76,7 +76,8 @@ def check(
 
     Credentials are read from ENTRA_TENANT_ID, ENTRA_CLIENT_ID and
     ENTRA_CLIENT_SECRET (or a .env file alongside them). Nothing in the tenant is
-    modified; the only Graph call made is a read of the user list.
+    modified; the only Graph calls made are reads of the user list and, with
+    --licenses, the tenant's subscribed SKUs.
     """
     try:
         users, sku_names = fetch_tenant_data(env_file=env_file, include_licenses=licenses)
