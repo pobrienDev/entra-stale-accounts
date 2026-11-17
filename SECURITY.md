@@ -17,7 +17,8 @@ receives security fixes. Upgrade with `pip install --upgrade entra-stale-account
 This tool is deliberately read-only:
 
 - The only Microsoft Graph calls it makes are GETs (`/users`, and
-  `/subscribedSkus` when `--licenses` is used), plus the OAuth token request.
+  `/subscribedSkus` when `--licenses` or `--licensed-only` is used), plus the
+  OAuth token request.
   Nothing in a tenant is ever created, modified, or deleted.
 - Credentials are read from environment variables or a local `.env` file and
   sent only to Microsoft's endpoints; they are never logged or echoed.

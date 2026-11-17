@@ -4,6 +4,13 @@ All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/) and the format is based on
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+- `--licensed-only` flag: limits the report to stale accounts holding at least
+  one license, for a reclaim list without the unlicensed accounts. Implies
+  `--licenses`, so the license column is included.
+
 ## [0.2.1] - 2026-08-27
 
 ### Fixed

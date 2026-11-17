@@ -130,6 +130,18 @@ class TestFindStaleAccounts:
         stale = find_stale_accounts([disabled], days=90, include_disabled=True, now=now)
         assert len(stale) == 1 and stale[0].account_enabled is False
 
+    def test_licensed_only_drops_accounts_without_a_license(self, now):
+        licensed = graph_user(
+            upn="sam@contoso.onmicrosoft.com",
+            last_sign_in="2026-01-01T08:00:00Z",
+            licenses=["cbdc14ab-d96c-4c30-b9f4-6ada7cdc1d46"],
+        )
+        unlicensed = graph_user(
+            upn="nina@contoso.onmicrosoft.com", last_sign_in="2026-01-01T08:00:00Z", licenses=[]
+        )
+        stale = find_stale_accounts([licensed, unlicensed], days=90, licensed_only=True, now=now)
+        assert [a.user_principal_name for a in stale] == ["sam@contoso.onmicrosoft.com"]
+
     def test_zero_results_when_everyone_is_active(self, users, now):
         assert find_stale_accounts(users[1:2], days=90, now=now) == []
 

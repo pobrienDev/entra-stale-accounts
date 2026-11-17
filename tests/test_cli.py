@@ -208,6 +208,62 @@ class TestLicensesFlag:
         assert "SPB" not in result.output
 
 
+class TestLicensedOnlyFlag:
+    SPB = "cbdc14ab-d96c-4c30-b9f4-6ada7cdc1d46"
+
+    @pytest.fixture
+    def mixed_users(self):
+        return [
+            graph_user(
+                user_id="1",
+                display_name="Stale Sam",
+                upn="sam@contoso.onmicrosoft.com",
+                last_sign_in=iso_days_ago(200),
+                licenses=[self.SPB],
+            ),
+            graph_user(
+                user_id="2",
+                display_name="Never Nina",
+                upn="nina@contoso.onmicrosoft.com",
+                last_sign_in=None,
+                last_non_interactive=None,
+                licenses=[],
+            ),
+        ]
+
+    def test_unlicensed_accounts_are_dropped(self, mixed_users):
+        with patch(
+            "entra_stale_accounts.cli.fetch_tenant_data", return_value=(mixed_users, None)
+        ):
+            result = runner.invoke(app, ["check", "--days", "90", "--licensed-only"])
+
+        assert result.exit_code == 0
+        assert "sam@contoso.onmicrosoft.com" in result.output
+        assert "nina@contoso.onmicrosoft.com" not in result.output
+        assert "1 stale licensed account(s)" in result.output
+
+    def test_it_implies_the_licenses_column(self, mixed_users):
+        with patch(
+            "entra_stale_accounts.cli.fetch_tenant_data", return_value=(mixed_users, None)
+        ) as fetch:
+            result = runner.invoke(app, ["check", "--output", "csv", "--licensed-only"])
+
+        assert fetch.call_args.kwargs["include_licenses"] is True
+        lines = result.output.splitlines()
+        assert lines[0].endswith("daysInactive,licenses")
+        assert len(lines) == 2
+
+    def test_zero_licensed_results_exits_cleanly(self, mixed_users):
+        with patch(
+            "entra_stale_accounts.cli.fetch_tenant_data",
+            return_value=([mixed_users[1]], None),
+        ):
+            result = runner.invoke(app, ["check", "--licensed-only"])
+
+        assert result.exit_code == 0
+        assert "No stale enabled licensed accounts found" in result.output
+
+
 class TestErrorHandling:
     def test_missing_credentials_exit_code_is_1(self):
         error = MissingCredentialsError("Missing credentials: ENTRA_TENANT_ID")
@@ -235,7 +291,14 @@ class TestHelpAndVersion:
         result = runner.invoke(app, ["check", "--help"])
 
         assert result.exit_code == 0
-        for expected in ("--days", "--output", "--include-disabled", "--help"):
+        for expected in (
+            "--days",
+            "--output",
+            "--include-disabled",
+            "--licenses",
+            "--licensed-only",
+            "--help",
+        ):
             assert expected in result.output
         assert "Inactivity threshold in days" in result.output
 

@@ -144,6 +144,7 @@ def find_stale_accounts(
     days: int,
     *,
     include_disabled: bool = False,
+    licensed_only: bool = False,
     now: Optional[datetime] = None,
     sku_names: Optional[Mapping[str, str]] = None,
 ) -> list[StaleAccount]:
@@ -151,7 +152,8 @@ def find_stale_accounts(
 
     Accounts that have never signed in are always considered stale — they have
     no activity at all, which is at least as noteworthy as an old sign-in.
-    Disabled accounts are skipped unless ``include_disabled`` is set.
+    Disabled accounts are skipped unless ``include_disabled`` is set, and
+    ``licensed_only`` drops accounts with no assigned license.
 
     Results are sorted most-inactive first, with never-signed-in accounts at the
     top, then alphabetically by UPN so the output is stable run to run.
@@ -167,6 +169,8 @@ def find_stale_accounts(
         if not account.account_enabled and not include_disabled:
             continue
         if account.days_inactive is not None and account.days_inactive < days:
+            continue
+        if licensed_only and not account.licenses:
             continue
         stale.append(account)
 

@@ -68,6 +68,11 @@ def check(
         "--licenses",
         help="Add a column of assigned license SKUs (readable names need Organization.Read.All)",
     ),
+    licensed_only: bool = typer.Option(
+        False,
+        "--licensed-only",
+        help="Only show accounts holding at least one license (implies --licenses)",
+    ),
     env_file: Optional[str] = typer.Option(
         None, "--env-file", help="Path to a .env file with tenant credentials"
     ),
@@ -79,6 +84,10 @@ def check(
     modified; the only Graph calls made are reads of the user list and, with
     --licenses, the tenant's subscribed SKUs.
     """
+    # Filtering on licenses needs the license data, so --licensed-only turns
+    # the column on as well.
+    licenses = licenses or licensed_only
+
     try:
         users, sku_names = fetch_tenant_data(env_file=env_file, include_licenses=licenses)
     except GraphError as exc:
@@ -86,7 +95,11 @@ def check(
         raise typer.Exit(code=1)
 
     accounts = find_stale_accounts(
-        users, days=days, include_disabled=include_disabled, sku_names=sku_names
+        users,
+        days=days,
+        include_disabled=include_disabled,
+        licensed_only=licensed_only,
+        sku_names=sku_names,
     )
     columns = COLUMNS_WITH_LICENSES if licenses else COLUMNS
 
@@ -95,14 +108,16 @@ def check(
         typer.echo(to_csv(accounts, columns=columns), nl=False)
         return
 
+    kind = "licensed account" if licensed_only else "account"
+
     if not accounts:
-        scope = "accounts" if include_disabled else "enabled accounts"
+        scope = f"{kind}s" if include_disabled else f"enabled {kind}s"
         typer.echo(f"No stale {scope} found (threshold: {days} days).")
         return
 
     typer.echo(to_table(accounts, columns=columns))
     typer.echo("")
-    typer.echo(f"{len(accounts)} stale account(s) past a {days}-day threshold.")
+    typer.echo(f"{len(accounts)} stale {kind}(s) past a {days}-day threshold.")
 
 
 if __name__ == "__main__":  # pragma: no cover

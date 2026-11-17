@@ -38,6 +38,9 @@ entra-stale-accounts check --days 90 --licenses
 
 # CSV with the license column — a reclaim list you can sort in Excel
 entra-stale-accounts check --days 90 --licenses --output csv > stale-licenses.csv
+
+# Only the stale accounts that hold a license — skip the unlicensed ones
+entra-stale-accounts check --days 90 --licensed-only
 ```
 
 ```
@@ -52,11 +55,13 @@ Options:
   --include-disabled      Also show already-disabled accounts
   --licenses              Add a column of assigned license SKUs (readable
                           names need Organization.Read.All)
+  --licensed-only         Only show accounts holding at least one license
+                          (implies --licenses)
   --env-file TEXT         Path to a .env file with tenant credentials
   --help                  Show this message and exit.
 ```
 
-`--licenses` adds a `LICENSES` column to the table and a trailing `licenses` column to the CSV. An account with several SKUs lists them in one cell, separated by `; `.
+`--licenses` adds a `LICENSES` column to the table and a trailing `licenses` column to the CSV. An account with several SKUs lists them in one cell, separated by `; `. The report still lists every stale account, and unlicensed ones have an empty cell — add `--licensed-only` to drop them.
 
 Accounts that have never signed in are always flagged — no activity at all is at least as noteworthy as an old sign-in — and sort to the top of the results.
 
